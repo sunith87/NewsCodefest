@@ -37,16 +37,17 @@ public class ArticleClient {
 
     public void putArticle(String name, String article) {
         ArticleService service = new ArticleService();
-        service.execute(name,article);
+        service.execute(name, article);
     }
 
     public void putImage(InputStream inputStream, String name, long length) {
 
-            ImageService service = new ImageService(inputStream,length);
-            service.execute(name);
+        ImageService service = new ImageService(inputStream, length);
+        service.execute(name);
 
 
     }
+
     public List<String> getArticleNames() {
         return getObjectNames(ARTICLES);
     }
@@ -80,7 +81,9 @@ public class ArticleClient {
         metadata.setContentLength(article.length());
 
         try {
-            s3client.putObject(new PutObjectRequest(BUCKET_NAME, folder + "/" + name, new StringInputStream(article), metadata));
+            String key = folder + "/" + name;
+            Log.v(HomeActivity.TAG, "objectUrl = " + S3_URI_PREFIX + key);
+            s3client.putObject(new PutObjectRequest(BUCKET_NAME, key, new StringInputStream(article), metadata));
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
@@ -90,7 +93,7 @@ public class ArticleClient {
     private void putVideo(String name, InputStream inputStream) {
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentType(VIDEO_MPEG);
-        s3client.putObject(new PutObjectRequest(BUCKET_NAME, VIDEO + "/" + name, inputStream,metadata));
+        s3client.putObject(new PutObjectRequest(BUCKET_NAME, VIDEO + "/" + name, inputStream, metadata));
 
     }
 
@@ -98,7 +101,7 @@ public class ArticleClient {
         List<String> list = new ArrayList<>();
         ObjectListing objects = s3client.listObjects(BUCKET_NAME, folder + "/");
 
-        for (S3ObjectSummary object: objects.getObjectSummaries()) {
+        for (S3ObjectSummary object : objects.getObjectSummaries()) {
             list.add(object.getKey().replace(folder + "/", ""));
         }
 
@@ -124,7 +127,7 @@ public class ArticleClient {
 //    }
 
 
-    public class ImageService extends AsyncTask<String,Void,Void>{
+    public class ImageService extends AsyncTask<String, Void, Void> {
 
 
         private final InputStream mInputStream;
@@ -132,7 +135,7 @@ public class ArticleClient {
 
         public ImageService(InputStream inputStream, long length) {
             mInputStream = inputStream;
-            mLength= length;
+            mLength = length;
         }
 
         @Override
@@ -142,12 +145,12 @@ public class ArticleClient {
 
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(mLength);
-            s3client.putObject(BUCKET_NAME,key,mInputStream, metadata);
+            s3client.putObject(BUCKET_NAME, key, mInputStream, metadata);
             return null;
         }
     }
 
-    public class ArticleService extends AsyncTask<String,Void,Void>{
+    public class ArticleService extends AsyncTask<String, Void, Void> {
 
         @Override
         protected Void doInBackground(String... params) {

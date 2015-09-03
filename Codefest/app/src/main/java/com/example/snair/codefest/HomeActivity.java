@@ -2,6 +2,7 @@ package com.example.snair.codefest;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -16,6 +17,7 @@ import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -42,7 +44,7 @@ public class HomeActivity extends Activity {
     private static final int TAKE_PICTURE_REQUEST_CODE = 1;
     public static final String SLASH = "/";
     private static final int TAKE_VIDEO_REQUEST_CODE = 2;
-    private static final Bitmap.CompressFormat IMAGE_FORMAT = Bitmap.CompressFormat.PNG;
+    private static final Bitmap.CompressFormat IMAGE_FORMAT = Bitmap.CompressFormat.JPEG;
     private static final int SPEECH_REQUEST_CODE = 101;
     private Button mButtonAdd;
     private Button mButtonSubmit;
@@ -60,6 +62,7 @@ public class HomeActivity extends Activity {
     private AlertDialog mTextAdderAlertDialog;
     private OptionsAdapter mOptionsAdapter;
     private AlertDialog mImageNameDialog;
+    private AlertDialog mArticleNameDialog;
     private View.OnClickListener submitClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -67,6 +70,7 @@ public class HomeActivity extends Activity {
         }
     };
     private EditText mTextEditor;
+
 
 
     @Override
@@ -83,6 +87,13 @@ public class HomeActivity extends Activity {
         mOptionRenderer = (ListView) findViewById(R.id.optionRenderer);
         mArticleItems = new ArrayList<EachItem>();
         mOptionsAdapter = new OptionsAdapter(HomeActivity.this, android.R.layout.simple_list_item_2, mArticleItems);
+        mOptionRenderer.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+                mOptionsAdapter.remove(mArticleItems.get(position));
+                return false;
+            }
+        });
         mOptionRenderer.setAdapter(mOptionsAdapter);
 
     }
@@ -179,7 +190,7 @@ public class HomeActivity extends Activity {
             startActivityForResult(intent, SPEECH_REQUEST_CODE);
         } catch (ActivityNotFoundException a) {
             Toast.makeText(getApplicationContext(),
-                 "No Activity",
+                 "No Speech to Text Support",
                     Toast.LENGTH_SHORT).show();
         }
     }
@@ -213,8 +224,9 @@ public class HomeActivity extends Activity {
                 showAssetNameDialog(requestCode, inputStream, length);
             } else if (requestCode == TAKE_PICTURE_REQUEST_CODE){
                 Bitmap bitmap = (Bitmap) intent.getExtras().get("data");
+                Uri imageUri = getImageUri(bitmap);
                 ByteArrayOutputStream os = new ByteArrayOutputStream();
-                bitmap.compress(IMAGE_FORMAT, 80, os);
+                bitmap.compress(IMAGE_FORMAT, 100, os);
                 inputStream = new ByteArrayInputStream(os.toByteArray());
                 length = os.toByteArray().length;
                 showAssetNameDialog(requestCode, inputStream, length);
@@ -239,6 +251,13 @@ public class HomeActivity extends Activity {
         }
     }
 
+    private Uri getImageUri(Bitmap bitmap){
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+        String path = MediaStore.Images.Media.insertImage(getContentResolver(), bitmap, "Title", null);
+        return Uri.parse(path);
+    }
+
     private void showAssetNameDialog(final int requestCode, InputStream inputStream, long length) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.image_name, null);
@@ -257,7 +276,7 @@ public class HomeActivity extends Activity {
                 EachItem item = null;
                 switch (requestCode) {
                     case TAKE_PICTURE_REQUEST_CODE:
-                        String imageResource = editText.getText().toString()+"."+ IMAGE_FORMAT.toString();
+                        String imageResource = editText.getText().toString()+"."+ IMAGE_FORMAT.toString().toLowerCase();
                         item = new EachItem(EachItem.IMAGE_OPTION,
                                 imageResource, HomeActivity.this);
                         break;
@@ -320,13 +339,40 @@ public class HomeActivity extends Activity {
 
         Gson gson = new Gson();
         String jsonString = gson.toJson(articleDataArrayList);
-        sendArticle(client, jsonString);
+        Log.v(TAG,"Json = "+jsonString);
+        sendArticle(jsonString);
 
     }
 
 
-    private void sendArticle(ArticleClient client, String json) {
-        client.putArticle("ArticleName", json);
+    private void sendArticle( final String json) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.article_name, null);
+        Button articleNameButton = (Button) view.findViewById(R.id.articleNameButton);
+        final EditText editText = (EditText) view.findViewById(R.id.articleNameText);
+        articleNameButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String articleName = editText.getText().toString();
+
+
+                if (mArticleNameDialog != null){
+                    mArticleNameDialog.dismiss();
+                }
+
+                if (articleName != null && !articleName.isEmpty()) {
+                    client.putArticle(articleName, json);
+                } else {
+                    Toast.makeText(getApplicationContext(),
+                            "Enter a valid name to send the article",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        builder.setView(view);
+        mArticleNameDialog = builder.create();
+        mArticleNameDialog.show();
+
     }
 
     private void uploadAsset(InputStream inputStream, String name, long length) {

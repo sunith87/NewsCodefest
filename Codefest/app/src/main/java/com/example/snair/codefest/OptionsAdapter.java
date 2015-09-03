@@ -48,21 +48,17 @@ public class OptionsAdapter extends ArrayAdapter<EachItem> {
     private View renderView(final int position, ViewGroup parent, LayoutInflater inflater) {
         View rowView = inflater.inflate(R.layout.individual_item, parent, false);
         EditText textView = (EditText) rowView.findViewById(R.id.textRenderer);
-        ImageView imageView = (ImageView) rowView.findViewById(R.id.imageRenderer);
 
         EachItem eachItem = mObjects.get(position);
         Log.d(HomeActivity.TAG, "position = " + position);
         Log.d(HomeActivity.TAG, "text = "+ eachItem.getResource());
         if (eachItem.getItemType() == EachItem.TEXT_OPTION) {
-            imageView.setVisibility(View.GONE);
             renderText(position, textView, eachItem);
         } else if (eachItem.getItemType() == EachItem.IMAGE_OPTION) {
-            textView.setVisibility(View.GONE);
-            renderImage(position, imageView, eachItem);
+            textView.setText("Image placeholder - "+eachItem.getResource());
 
         }else if (eachItem.getItemType() == EachItem.VIDEO_OPTION) {
-            imageView.setVisibility(View.GONE);
-            textView.setText("Video");
+            textView.setText("Video placeholder - "+eachItem.getResource());
         }
         return rowView;
     }
