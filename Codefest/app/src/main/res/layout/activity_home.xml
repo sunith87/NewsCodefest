@@ -9,20 +9,37 @@
     tools:context=".HomeActivity">
 
 
-    <Button
-        android:id="@+id/btnAdd"
-        android:layout_width="wrap_content"
+    <LinearLayout
+
+        android:id="@+id/btnWrapper"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="82dp"
-        android:text="Add Article" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnAdd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+
+            android:text="Add data to Article" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/btnSubmit"
+            android:text="Send Article" />
+
+    </LinearLayout>
+
 
     <ScrollView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
-        android:layout_above="@id/btnAdd"
+        android:layout_above="@id/btnWrapper"
         android:fillViewport="true">
 
         <ListView

@@ -19,6 +19,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 
+import com.google.gson.Gson;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -32,6 +34,7 @@ public class HomeActivity extends Activity {
     public static final String TAG = HomeActivity.class.getSimpleName();
     private static final int TAKE_PICTURE_REQUEST_CODE = 1;
     private Button mButtonAdd;
+    private Button mButtonSubmit;
     private ListView mOptionRenderer;
 
     List<EachItem> mArticleItems;
@@ -45,6 +48,12 @@ public class HomeActivity extends Activity {
     private AlertDialog mTextAdderAlertDialog;
     private OptionsAdapter mOptionsAdapter;
     private AlertDialog mImageNameDialog;
+    private View.OnClickListener submitClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            submitDataToServer();
+        }
+    };
 
 
     @Override
@@ -53,6 +62,8 @@ public class HomeActivity extends Activity {
         setContentView(R.layout.activity_home);
         mButtonAdd = (Button) findViewById(R.id.btnAdd);
         mButtonAdd.setOnClickListener(optionsBucketListener);
+        mButtonSubmit = (Button) findViewById(R.id.btnSubmit);
+        mButtonSubmit.setOnClickListener(submitClickListener);
         mOptionRenderer = (ListView)findViewById(R.id.optionRenderer);
         mArticleItems = new ArrayList<EachItem>();
         mOptionsAdapter = new OptionsAdapter(HomeActivity.this, android.R.layout.simple_list_item_2, mArticleItems);
@@ -190,6 +201,29 @@ public class HomeActivity extends Activity {
         if (mTextAdderAlertDialog != null){
             mTextAdderAlertDialog.dismiss();
         }
+
+
+    }
+
+    private void submitDataToServer() {
+        ArticleData data = null;
+        List<String> jsonData = new ArrayList<String>();
+
+
+        for (EachItem item : mArticleItems) {
+            if (item.getItemType() == EachItem.TEXT_OPTION) {
+                data = new ArticleData(ArticleData.ContentType.TEXT, item.getResource());
+            } else if (item.getItemType() == EachItem.IMAGE_OPTION) {
+                data = new ArticleData(ArticleData.ContentType.IMAGE, item.getResource());
+            }
+            Gson gson = new Gson();
+            String jsonString = gson.toJson(data);
+            jsonData.add(jsonString);
+        }
+
+        Object[] objects = jsonData.toArray();
+
+        Log.v(TAG, "json data = " + objects.toString());
 
 
     }
