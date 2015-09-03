@@ -109,8 +109,6 @@ public class HomeActivity extends Activity {
     private void openTextAdder() {
 
         logText();
-
-
         Log.v(TAG, "openTextAdder");
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.text_input, null);
@@ -222,7 +220,6 @@ public class HomeActivity extends Activity {
         }
 
         Object[] objects = jsonData.toArray();
-
         Log.v(TAG, "json data = " + objects.toString());
 
 

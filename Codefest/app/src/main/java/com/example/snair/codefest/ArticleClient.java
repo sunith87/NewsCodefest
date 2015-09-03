@@ -9,8 +9,10 @@ import com.amazonaws.util.StringInputStream;
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Closeables;
+import com.google.gson.Gson;
 
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
@@ -28,6 +30,10 @@ public class ArticleClient {
 
     public void putArticle(String name, String article) {
         putObject(name, article, ARTICLES);
+    }
+
+    public void putImage(String name, File file) {
+        s3client.putObject(new PutObjectRequest(BUCKET_NAME, IMAGES + "/" + name, file));
     }
 
     public List<String> getArticleNames() {
@@ -83,6 +89,7 @@ public class ArticleClient {
     public static void main(String[] args) {
         ArticleClient client = new ArticleClient();
         client.putArticle("test-article-3", "some-content");
+        client.putImage("test-image-1", new File("/tmp/test-image.jpeg"));
         List<String> articles = client.getArticleNames();
 
         for (String articleName: articles) {
@@ -90,6 +97,10 @@ public class ArticleClient {
         }
 
         System.out.println(client.getArticle("README.md"));
+
+        Gson gson = new Gson();
+        Object o = gson.fromJson("[{\"aa\":\"\b\"}]", List.class);
+        System.out.println(o.getClass().getName());
+        System.out.println(((List) o).get(0).getClass().getName());
     }
 }
-
