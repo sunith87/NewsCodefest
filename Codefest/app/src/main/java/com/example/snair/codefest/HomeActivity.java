@@ -7,9 +7,7 @@ import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.os.Environment;
-import android.support.annotation.NonNull;
+import android.os.StrictMode;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -23,7 +21,6 @@ import com.google.gson.Gson;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,6 +30,7 @@ public class HomeActivity extends Activity {
     public static final int IMAGE_OPTION = 1;
     public static final String TAG = HomeActivity.class.getSimpleName();
     private static final int TAKE_PICTURE_REQUEST_CODE = 1;
+    public static final String SLASH = "/";
     private Button mButtonAdd;
     private Button mButtonSubmit;
     private ListView mOptionRenderer;
@@ -60,6 +58,9 @@ public class HomeActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
         mButtonAdd = (Button) findViewById(R.id.btnAdd);
         mButtonAdd.setOnClickListener(optionsBucketListener);
         mButtonSubmit = (Button) findViewById(R.id.btnSubmit);
@@ -204,27 +205,41 @@ public class HomeActivity extends Activity {
     }
 
     private void submitDataToServer() {
-        ArticleData data = null;
-        List<String> jsonData = new ArrayList<String>();
 
+        List<ArticleData> articleDataArrayList = new ArrayList<ArticleData>();
+
+        ArticleClient client = new ArticleClient();
 
         for (EachItem item : mArticleItems) {
+            ArticleData data = null;
             if (item.getItemType() == EachItem.TEXT_OPTION) {
                 data = new ArticleData(ArticleData.ContentType.TEXT, item.getResource());
             } else if (item.getItemType() == EachItem.IMAGE_OPTION) {
-                data = new ArticleData(ArticleData.ContentType.IMAGE, item.getResource());
+                File imgFile = new File(item.getResource());
+                uploadImage(client, imgFile);
+                String dataUrl = ArticleClient.S3_URI_PREFIX + SLASH + ArticleClient.IMAGES + SLASH + imgFile.getName();
+                data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
             }
-            Gson gson = new Gson();
-            String jsonString = gson.toJson(data);
-            jsonData.add(jsonString);
+
+            articleDataArrayList.add(data);
         }
 
-        Object[] objects = jsonData.toArray();
-        Log.v(TAG, "json data = " + objects.toString());
 
+        Gson gson = new Gson();
+        String jsonString = gson.toJson(articleDataArrayList);
+        sendArticle(client, jsonString);
 
     }
 
+
+
+    private void sendArticle(ArticleClient client, String json) {
+        client.putArticle("ArticleName", json);
+    }
+
+    private void uploadImage(ArticleClient client, File file) {
+        client.putImage(file);
+    }
 
 
 }

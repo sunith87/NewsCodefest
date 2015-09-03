@@ -1,6 +1,9 @@
 package com.example.snair.codefest;
 
 
+import android.os.AsyncTask;
+import android.util.Log;
+
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -29,13 +32,18 @@ public class ArticleClient {
     private AmazonS3 s3client = new AmazonS3Client((AWSCredentials) null);
 
     public void putArticle(String name, String article) {
-        putObject(name, article, ARTICLES);
+        ArticleService service = new ArticleService();
+        service.execute(name,article);
     }
 
-    public void putImage(String name, File file) {
-        s3client.putObject(new PutObjectRequest(BUCKET_NAME, IMAGES + "/" + name, file));
-    }
+    public void putImage(File imageFile) {
 
+        if (imageFile.exists()) {
+            ImageService service = new ImageService(imageFile);
+            service.execute();
+        }
+
+    }
     public List<String> getArticleNames() {
         return getObjectNames(ARTICLES);
     }
@@ -86,21 +94,49 @@ public class ArticleClient {
         return list;
     }
 
-    public static void main(String[] args) {
-        ArticleClient client = new ArticleClient();
-        client.putArticle("test-article-3", "some-content");
-        client.putImage("test-image-1", new File("/tmp/test-image.jpeg"));
-        List<String> articles = client.getArticleNames();
+//    public static void main(String[] args) {
+//        ArticleClient client = new ArticleClient();
+//        client.putArticle("test-article-3", "some-content");
+//        client.putImage("test-image-1", new File("/tmp/test-image.jpeg"));
+//        List<String> articles = client.getArticleNames();
+//
+//        for (String articleName: articles) {
+//            System.out.println(articleName);
+//        }
+//
+//        System.out.println(client.getArticle("README.md"));
+//
+//        Gson gson = new Gson();
+//        Object o = gson.fromJson("[{\"aa\":\"\b\"}]", List.class);
+//        System.out.println(o.getClass().getName());
+//        System.out.println(((List) o).get(0).getClass().getName());
+//    }
 
-        for (String articleName: articles) {
-            System.out.println(articleName);
+
+    public class ImageService extends AsyncTask<String,Void,Void>{
+
+        File imageFile;
+        public ImageService(File imgFile) {
+             imageFile = imgFile;
         }
 
-        System.out.println(client.getArticle("README.md"));
+        @Override
+        protected Void doInBackground(String... params) {
+            String key = IMAGES + "/" + imageFile.getName();
+            Log.v(HomeActivity.TAG,"key ="+key);
+            s3client.putObject(new PutObjectRequest(BUCKET_NAME, key, imageFile));
+            return null;
+        }
+    }
 
-        Gson gson = new Gson();
-        Object o = gson.fromJson("[{\"aa\":\"\b\"}]", List.class);
-        System.out.println(o.getClass().getName());
-        System.out.println(((List) o).get(0).getClass().getName());
+    public class ArticleService extends AsyncTask<String,Void,Void>{
+
+        @Override
+        protected Void doInBackground(String... params) {
+            String name = params[0];
+            String article = params[1];
+            putObject(name, article, ARTICLES);
+            return null;
+        }
     }
 }
