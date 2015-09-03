@@ -6,9 +6,13 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.StrictMode;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,10 +21,13 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 
+import com.amazonaws.services.cognitosync.model.Platform;
 import com.google.gson.Gson;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,12 +35,15 @@ public class HomeActivity extends Activity {
 
     public static final int TEXT_OPTION = 0;
     public static final int IMAGE_OPTION = 1;
+    public static final int VIDEO_OPTION = 2;
     public static final String TAG = HomeActivity.class.getSimpleName();
     private static final int TAKE_PICTURE_REQUEST_CODE = 1;
     public static final String SLASH = "/";
+    private static final int TAKE_VIDEO_REQUEST_CODE = 2;
     private Button mButtonAdd;
     private Button mButtonSubmit;
     private ListView mOptionRenderer;
+    ArticleClient client = new ArticleClient();
 
     List<EachItem> mArticleItems;
 
@@ -65,7 +75,7 @@ public class HomeActivity extends Activity {
         mButtonAdd.setOnClickListener(optionsBucketListener);
         mButtonSubmit = (Button) findViewById(R.id.btnSubmit);
         mButtonSubmit.setOnClickListener(submitClickListener);
-        mOptionRenderer = (ListView)findViewById(R.id.optionRenderer);
+        mOptionRenderer = (ListView) findViewById(R.id.optionRenderer);
         mArticleItems = new ArrayList<EachItem>();
         mOptionsAdapter = new OptionsAdapter(HomeActivity.this, android.R.layout.simple_list_item_2, mArticleItems);
         mOptionRenderer.setAdapter(mOptionsAdapter);
@@ -73,7 +83,7 @@ public class HomeActivity extends Activity {
     }
 
     private void openContentOptionsList() {
-        final String[] option = new String[] { "Add Text", "Add Image"};
+        final String[] option = new String[]{"Add Text", "Add Image","Add Video"};
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.select_dialog_item, option);
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Option");
@@ -91,10 +101,12 @@ public class HomeActivity extends Activity {
     }
 
     private void openRenderer(int which) {
-        if (which == TEXT_OPTION){
+        if (which == TEXT_OPTION) {
             openTextAdder();
-        }else if (which == IMAGE_OPTION){
+        } else if (which == IMAGE_OPTION) {
             openImageAdder();
+        }else if (which == VIDEO_OPTION){
+            openVideoAdder();
         }
 
     }
@@ -107,52 +119,73 @@ public class HomeActivity extends Activity {
 
     }
 
+    private void openVideoAdder() {
+        Log.v(TAG, "openVideoAdder");
+        Intent cameraIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        startActivityForResult(cameraIntent, TAKE_VIDEO_REQUEST_CODE);
+
+
+    }
+
     private void openTextAdder() {
 
         logText();
         Log.v(TAG, "openTextAdder");
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.text_input, null);
-        Button articleMakerButton = (Button)view.findViewById(R.id.articleMakerButton);
-        final EditText editText = (EditText)view.findViewById(R.id.articleTextEditor);
+        Button articleMakerButton = (Button) view.findViewById(R.id.articleMakerButton);
+        final EditText editText = (EditText) view.findViewById(R.id.articleTextEditor);
         articleMakerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                    String text = editText.getText().toString();
-                    EachItem item = new EachItem(EachItem.TEXT_OPTION,text,HomeActivity.this);
-                    mOptionsAdapter.add(item);
-                    if (mTextAdderAlertDialog != null){
-                        mTextAdderAlertDialog.dismiss();
-                    }
+                String text = editText.getText().toString();
+                EachItem item = new EachItem(EachItem.TEXT_OPTION, text, HomeActivity.this);
+                mOptionsAdapter.add(item);
+                if (mTextAdderAlertDialog != null) {
+                    mTextAdderAlertDialog.dismiss();
+                }
                 editText.setText("");
             }
         });
         builder.setView(view);
         builder.setTitle("Add text to article");
-         mTextAdderAlertDialog = builder.create();
+        mTextAdderAlertDialog = builder.create();
         mTextAdderAlertDialog.show();
 
 
     }
 
     private void logText() {
-        for (EachItem item:mArticleItems){
-            Log.v(TAG, "item = "+item.getResource());
+        for (EachItem item : mArticleItems) {
+            Log.v(TAG, "item = " + item.getResource());
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
 
+        if (resultCode == RESULT_OK) {
 
-        if (requestCode == TAKE_PICTURE_REQUEST_CODE && resultCode == RESULT_OK) {
-            final Bitmap bitmap = (Bitmap)intent.getExtras().get("data");
+            final Uri uri = intent.getData();
+            InputStream inputStream = null;
+            try {
+                inputStream = getContentResolver().openInputStream(uri);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+            Cursor returnCursor =
+                    getContentResolver().query(uri, null, null, null, null);
+            int size = returnCursor.getColumnIndex(OpenableColumns.SIZE);
+            returnCursor.moveToFirst();
+
+            final long length = returnCursor.getLong(size);
 
 
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             View view = LayoutInflater.from(this).inflate(R.layout.image_name, null);
-            Button getImageNameButton = (Button)view.findViewById(R.id.imageNameLayoutButton);
-            final EditText editText = (EditText)view.findViewById(R.id.imageNameEditor);
+            Button getImageNameButton = (Button) view.findViewById(R.id.imageNameLayoutButton);
+            final EditText editText = (EditText) view.findViewById(R.id.imageNameEditor);
+            final InputStream finalInputStream = inputStream;
             getImageNameButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -160,11 +193,22 @@ public class HomeActivity extends Activity {
                     if (mImageNameDialog != null) {
                         mImageNameDialog.dismiss();
                     }
-                    saveBitmap(bitmap,editText.getText().toString());
+                    uploadImage(finalInputStream,editText.getText().toString(),length);
                 }
             });
             builder.setView(view);
-            builder.setTitle("Add image name");
+
+            switch (requestCode) {
+                case TAKE_PICTURE_REQUEST_CODE:
+                    builder.setTitle("Add image name");
+                    mImageNameDialog = builder.create();
+                    mImageNameDialog.show();
+                    break;
+                case TAKE_VIDEO_REQUEST_CODE:
+                    builder.setTitle("Add video name");
+
+            }
+
             mImageNameDialog = builder.create();
             mImageNameDialog.show();
         }
@@ -192,12 +236,12 @@ public class HomeActivity extends Activity {
         }
 
 
-        String fullPath = directory.getAbsolutePath()+"/"+image_name;
+        String fullPath = directory.getAbsolutePath() + "/" + image_name;
         Log.v(TAG, "bitmap fullPath= " + fullPath);
-        EachItem item = new EachItem(EachItem.IMAGE_OPTION,fullPath,HomeActivity.this);
+        EachItem item = new EachItem(EachItem.IMAGE_OPTION, fullPath, HomeActivity.this);
 
         mOptionsAdapter.add(item);
-        if (mTextAdderAlertDialog != null){
+        if (mTextAdderAlertDialog != null) {
             mTextAdderAlertDialog.dismiss();
         }
 
@@ -208,7 +252,7 @@ public class HomeActivity extends Activity {
 
         List<ArticleData> articleDataArrayList = new ArrayList<ArticleData>();
 
-        ArticleClient client = new ArticleClient();
+
 
         for (EachItem item : mArticleItems) {
             ArticleData data = null;
@@ -216,7 +260,6 @@ public class HomeActivity extends Activity {
                 data = new ArticleData(ArticleData.ContentType.TEXT, item.getResource());
             } else if (item.getItemType() == EachItem.IMAGE_OPTION) {
                 File imgFile = new File(item.getResource());
-                uploadImage(client, imgFile);
                 String dataUrl = ArticleClient.S3_URI_PREFIX + ArticleClient.IMAGES + SLASH + imgFile.getName();
                 data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
             }
@@ -232,13 +275,13 @@ public class HomeActivity extends Activity {
     }
 
 
-
     private void sendArticle(ArticleClient client, String json) {
         client.putArticle("ArticleName", json);
     }
 
-    private void uploadImage(ArticleClient client, File file) {
-        client.putImage(file);
+    private void uploadImage(InputStream inputStream, String name, long length) {
+        client.putImage(inputStream,name,length);
+
     }
 
 

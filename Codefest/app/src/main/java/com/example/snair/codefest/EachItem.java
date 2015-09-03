@@ -7,8 +7,9 @@ import android.content.SharedPreferences;
  * Created by snair on 03/09/2015.
  */
 public class EachItem {
-    public static final int TEXT_OPTION = 0;
-    public static final int IMAGE_OPTION = 1;
+    public static final int TEXT_OPTION = HomeActivity.TEXT_OPTION;
+    public static final int IMAGE_OPTION = HomeActivity.IMAGE_OPTION;
+    public static final int VIDEO_OPTION = HomeActivity.VIDEO_OPTION;
 
     public static final String CODEFEST_APP_EACH_ITEM = "Codefest_app_each_item";
     public static final String RESOURCE_SAVE_KEY = "resource_save_key";

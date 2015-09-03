@@ -60,8 +60,10 @@ public class OptionsAdapter extends ArrayAdapter<EachItem> {
             textView.setVisibility(View.GONE);
             renderImage(position, imageView, eachItem);
 
+        }else if (eachItem.getItemType() == EachItem.VIDEO_OPTION) {
+            imageView.setVisibility(View.GONE);
+            textView.setText("Video");
         }
-
         return rowView;
     }
 

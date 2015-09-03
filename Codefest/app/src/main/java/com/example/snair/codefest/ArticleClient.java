@@ -17,6 +17,7 @@ import com.google.gson.Gson;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
@@ -28,7 +29,10 @@ public class ArticleClient {
     public static final String BUCKET_NAME = "codefest-team-a";
     public static final String ARTICLES = "articles";
     public static final String IMAGES = "images";
+    public static final String VIDEO = "images";
     public static final String S3_URI_PREFIX = "https://codefest-team-a.s3-eu-west-1.amazonaws.com/";
+    public static final String VIDEO_MPEG = "video/mpeg";
+
     private AmazonS3 s3client = new AmazonS3Client((AWSCredentials) null);
 
     public void putArticle(String name, String article) {
@@ -36,12 +40,11 @@ public class ArticleClient {
         service.execute(name,article);
     }
 
-    public void putImage(File imageFile) {
+    public void putImage(InputStream inputStream, String name, long length) {
 
-        if (imageFile.exists()) {
-            ImageService service = new ImageService(imageFile);
-            service.execute();
-        }
+            ImageService service = new ImageService(inputStream,length);
+            service.execute(name);
+
 
     }
     public List<String> getArticleNames() {
@@ -83,6 +86,14 @@ public class ArticleClient {
         }
     }
 
+
+    private void putVideo(String name, InputStream inputStream) {
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType(VIDEO_MPEG);
+        s3client.putObject(new PutObjectRequest(BUCKET_NAME, VIDEO + "/" + name, inputStream,metadata));
+
+    }
+
     private List<String> getObjectNames(String folder) {
         List<String> list = new ArrayList<>();
         ObjectListing objects = s3client.listObjects(BUCKET_NAME, folder + "/");
@@ -115,16 +126,23 @@ public class ArticleClient {
 
     public class ImageService extends AsyncTask<String,Void,Void>{
 
-        File imageFile;
-        public ImageService(File imgFile) {
-             imageFile = imgFile;
+
+        private final InputStream mInputStream;
+        private final long mLength;
+
+        public ImageService(InputStream inputStream, long length) {
+            mInputStream = inputStream;
+            mLength= length;
         }
 
         @Override
         protected Void doInBackground(String... params) {
-            String key = IMAGES + "/" + imageFile.getName();
-            Log.v(HomeActivity.TAG,"key ="+key);
-            s3client.putObject(new PutObjectRequest(BUCKET_NAME, key, imageFile));
+            String key = IMAGES + "/" + params[0];
+            Log.v(HomeActivity.TAG, "key =" + key);
+
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentLength(mLength);
+            s3client.putObject(BUCKET_NAME,key,mInputStream, metadata);
             return null;
         }
     }
