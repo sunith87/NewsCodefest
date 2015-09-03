@@ -370,6 +370,7 @@ public class HomeActivity extends Activity {
             }
         });
         builder.setView(view);
+        builder.setTitle("Add name for article");
         mArticleNameDialog = builder.create();
         mArticleNameDialog.show();
 
