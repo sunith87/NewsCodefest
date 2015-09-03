@@ -217,7 +217,7 @@ public class HomeActivity extends Activity {
             } else if (item.getItemType() == EachItem.IMAGE_OPTION) {
                 File imgFile = new File(item.getResource());
                 uploadImage(client, imgFile);
-                String dataUrl = ArticleClient.S3_URI_PREFIX + SLASH + ArticleClient.IMAGES + SLASH + imgFile.getName();
+                String dataUrl = ArticleClient.S3_URI_PREFIX + ArticleClient.IMAGES + SLASH + imgFile.getName();
                 data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
             }
 
