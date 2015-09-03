@@ -2,8 +2,7 @@ package com.example.snair.codefest;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.ContextWrapper;
+import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
@@ -13,6 +12,7 @@ import android.os.StrictMode;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,18 +20,18 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Toast;
 
-import com.amazonaws.services.cognitosync.model.Platform;
 import com.google.gson.Gson;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class HomeActivity extends Activity {
 
@@ -42,6 +42,8 @@ public class HomeActivity extends Activity {
     private static final int TAKE_PICTURE_REQUEST_CODE = 1;
     public static final String SLASH = "/";
     private static final int TAKE_VIDEO_REQUEST_CODE = 2;
+    private static final Bitmap.CompressFormat IMAGE_FORMAT = Bitmap.CompressFormat.PNG;
+    private static final int SPEECH_REQUEST_CODE = 101;
     private Button mButtonAdd;
     private Button mButtonSubmit;
     private ListView mOptionRenderer;
@@ -64,6 +66,7 @@ public class HomeActivity extends Activity {
             submitDataToServer();
         }
     };
+    private EditText mTextEditor;
 
 
     @Override
@@ -136,17 +139,26 @@ public class HomeActivity extends Activity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.text_input, null);
         Button articleMakerButton = (Button) view.findViewById(R.id.articleMakerButton);
-        final EditText editText = (EditText) view.findViewById(R.id.articleTextEditor);
+        Button articleTextSpeech = (Button) view.findViewById(R.id.articleTextSpeech);
+        mTextEditor = (EditText) view.findViewById(R.id.articleTextEditor);
         articleMakerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String text = editText.getText().toString();
+                String text = mTextEditor.getText().toString();
                 EachItem item = new EachItem(EachItem.TEXT_OPTION, text, HomeActivity.this);
                 mOptionsAdapter.add(item);
                 if (mTextAdderAlertDialog != null) {
                     mTextAdderAlertDialog.dismiss();
                 }
-                editText.setText("");
+                mTextEditor.setText("");
+            }
+        });
+
+
+        articleTextSpeech.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptSpeechInput();
             }
         });
         builder.setView(view);
@@ -155,6 +167,21 @@ public class HomeActivity extends Activity {
         mTextAdderAlertDialog.show();
 
 
+    }
+
+    private void promptSpeechInput() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+
+        try {
+            startActivityForResult(intent, SPEECH_REQUEST_CODE);
+        } catch (ActivityNotFoundException a) {
+            Toast.makeText(getApplicationContext(),
+                 "No Activity",
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void logText() {
@@ -183,92 +210,91 @@ public class HomeActivity extends Activity {
                 returnCursor.moveToFirst();
                 length = returnCursor.getLong(size);
                 returnCursor.close();
+                showAssetNameDialog(requestCode, inputStream, length);
             } else if (requestCode == TAKE_PICTURE_REQUEST_CODE){
                 Bitmap bitmap = (Bitmap) intent.getExtras().get("data");
                 ByteArrayOutputStream os = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, os);
+                bitmap.compress(IMAGE_FORMAT, 80, os);
                 inputStream = new ByteArrayInputStream(os.toByteArray());
                 length = os.toByteArray().length;
-            }
+                showAssetNameDialog(requestCode, inputStream, length);
+            }else if(requestCode == SPEECH_REQUEST_CODE){
+                if (mTextEditor != null) {
+                   String oldValue =  mTextEditor.getText().toString();
 
+                    ArrayList<String> result = intent
+                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            View view = LayoutInflater.from(this).inflate(R.layout.image_name, null);
-            Button getImageNameButton = (Button) view.findViewById(R.id.imageNameLayoutButton);
-            final EditText editText = (EditText) view.findViewById(R.id.imageNameEditor);
-            final InputStream finalInputStream = inputStream;
-            final long finalLength = length;
-            getImageNameButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
+                    StringBuffer buffer = new StringBuffer();
+                    buffer.append(oldValue);
+                    buffer.append("\n");
+                    buffer.append(result.get(0));
 
-                    if (mImageNameDialog != null) {
-                        mImageNameDialog.dismiss();
-                    }
-                    uploadImage(finalInputStream, editText.getText().toString(), finalLength);
-                    if (requestCode == TAKE_PICTURE_REQUEST_CODE) {
-                        EachItem item = new EachItem(EachItem.IMAGE_OPTION,
-                                editText.getText().toString(), HomeActivity.this);
-
-                        mOptionsAdapter.add(item);
-                        if (mTextAdderAlertDialog != null) {
-                            mTextAdderAlertDialog.dismiss();
-                        }
-                    }
+                    mTextEditor.setText(buffer.toString());
                 }
-            });
-            builder.setView(view);
-
-            switch (requestCode) {
-                case TAKE_PICTURE_REQUEST_CODE:
-                    builder.setTitle("Add image name");
-                    break;
-                case TAKE_VIDEO_REQUEST_CODE:
-                    builder.setTitle("Add video name");
-                    break;
-                default:
-                    break;
-
             }
 
-            mImageNameDialog = builder.create();
-            mImageNameDialog.show();
+
+
         }
     }
 
-    private void saveBitmap(Bitmap bitmap, String bitmapName) {
-        Log.v(TAG, "bitmap = " + bitmap.getByteCount());
-        Log.v(TAG, "bitmap name= " + bitmapName);
-        ContextWrapper cw = new ContextWrapper(getApplicationContext());
-        File directory = cw.getDir("imageDir", Context.MODE_PRIVATE);
-        // Create imageDir
-        String image_name = bitmapName + ".jpg";
-        File mypath = new File(directory, image_name);
+    private void showAssetNameDialog(final int requestCode, InputStream inputStream, long length) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.image_name, null);
+        Button getImageNameButton = (Button) view.findViewById(R.id.imageNameLayoutButton);
+        final EditText editText = (EditText) view.findViewById(R.id.imageNameEditor);
+        final InputStream finalInputStream = inputStream;
+        final long finalLength = length;
+        getImageNameButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
 
-        FileOutputStream fos = null;
-        try {
+                if (mImageNameDialog != null) {
+                    mImageNameDialog.dismiss();
+                }
+                uploadAsset(finalInputStream, editText.getText().toString(), finalLength);
+                EachItem item = null;
+                switch (requestCode) {
+                    case TAKE_PICTURE_REQUEST_CODE:
+                        String imageResource = editText.getText().toString()+"."+ IMAGE_FORMAT.toString();
+                        item = new EachItem(EachItem.IMAGE_OPTION,
+                                imageResource, HomeActivity.this);
+                        break;
+                    case TAKE_VIDEO_REQUEST_CODE:
+                        item = new EachItem(EachItem.VIDEO_OPTION,
+                                editText.getText().toString(), HomeActivity.this);
+                        break;
+                    default:
+                        break;
 
-            fos = new FileOutputStream(mypath);
+                }
 
-            // Use the compress method on the BitMap object to write image to the OutputStream
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
-            fos.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+                if (item != null)
+                    mOptionsAdapter.add(item);
+                if (mTextAdderAlertDialog != null) {
+                    mTextAdderAlertDialog.dismiss();
+                }
+            }
+        });
+        builder.setView(view);
+
+        switch (requestCode) {
+            case TAKE_PICTURE_REQUEST_CODE:
+                builder.setTitle("Add image name");
+                break;
+            case TAKE_VIDEO_REQUEST_CODE:
+                builder.setTitle("Add video name");
+                break;
+            default:
+                break;
+
         }
 
-
-        String fullPath = directory.getAbsolutePath() + "/" + image_name;
-        Log.v(TAG, "bitmap fullPath= " + fullPath);
-        EachItem item = new EachItem(EachItem.IMAGE_OPTION, fullPath, HomeActivity.this);
-
-        mOptionsAdapter.add(item);
-        if (mTextAdderAlertDialog != null) {
-            mTextAdderAlertDialog.dismiss();
-        }
-
-
+        mImageNameDialog = builder.create();
+        mImageNameDialog.show();
     }
+
 
     private void submitDataToServer() {
 
@@ -281,6 +307,10 @@ public class HomeActivity extends Activity {
             } else if (item.getItemType() == EachItem.IMAGE_OPTION) {
                 File imgFile = new File(item.getResource());
                 String dataUrl = ArticleClient.S3_URI_PREFIX + ArticleClient.IMAGES + SLASH + imgFile.getName();
+                data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
+            } else if (item.getItemType() == EachItem.VIDEO_OPTION) {
+                File imgFile = new File(item.getResource());
+                String dataUrl = ArticleClient.S3_URI_PREFIX + ArticleClient.VIDEO + SLASH + imgFile.getName();
                 data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
             }
 
@@ -299,7 +329,7 @@ public class HomeActivity extends Activity {
         client.putArticle("ArticleName", json);
     }
 
-    private void uploadImage(InputStream inputStream, String name, long length) {
+    private void uploadAsset(InputStream inputStream, String name, long length) {
         client.putImage(inputStream,name,length);
 
     }

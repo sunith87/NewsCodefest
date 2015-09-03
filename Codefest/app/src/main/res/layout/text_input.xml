@@ -9,9 +9,11 @@
         android:layout_height="wrap_content"
         android:text="Add Text"
         android:id="@+id/articleMakerButton"
+        android:layout_marginLeft="31dp"
         android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:layout_margin="2dip"/>
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="31dp" />
 
     <EditText
         android:id="@+id/articleTextEditor"
@@ -22,8 +24,17 @@
         android:inputType="textMultiLine"
         android:layout_above="@id/articleMakerButton"/>
 
-
-
+    <Button
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Speech"
+        android:id="@+id/articleTextSpeech"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginRight="48dp"
+        android:layout_marginEnd="48dp" />
 
 
 </RelativeLayout>

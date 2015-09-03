@@ -8,7 +8,7 @@ import com.google.gson.annotations.SerializedName;
 public class ArticleData {
 
    public enum ContentType{
-       TEXT,IMAGE
+       TEXT,IMAGE,VIDEO
    }
 
     private String type;
