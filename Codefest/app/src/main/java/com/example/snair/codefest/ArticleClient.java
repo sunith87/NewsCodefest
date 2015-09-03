@@ -88,14 +88,7 @@ public class ArticleClient {
             throw new RuntimeException(e);
         }
     }
-
-
-    private void putVideo(String name, InputStream inputStream) {
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentType(VIDEO_MPEG);
-        s3client.putObject(new PutObjectRequest(BUCKET_NAME, VIDEO + "/" + name, inputStream, metadata));
-
-    }
+    
 
     private List<String> getObjectNames(String folder) {
         List<String> list = new ArrayList<>();
