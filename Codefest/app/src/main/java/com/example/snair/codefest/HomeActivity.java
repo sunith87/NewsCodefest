@@ -24,6 +24,8 @@ import android.widget.ListView;
 import com.amazonaws.services.cognitosync.model.Platform;
 import com.google.gson.Gson;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -162,23 +164,32 @@ public class HomeActivity extends Activity {
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+    protected void onActivityResult(final int requestCode, int resultCode, Intent intent) {
 
         if (resultCode == RESULT_OK) {
 
             final Uri uri = intent.getData();
             InputStream inputStream = null;
-            try {
-                inputStream = getContentResolver().openInputStream(uri);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-            Cursor returnCursor =
-                    getContentResolver().query(uri, null, null, null, null);
-            int size = returnCursor.getColumnIndex(OpenableColumns.SIZE);
-            returnCursor.moveToFirst();
 
-            final long length = returnCursor.getLong(size);
+        long length = 0;
+            if (uri != null && requestCode==TAKE_VIDEO_REQUEST_CODE) {
+                try {
+                    inputStream = getContentResolver().openInputStream(uri);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+                Cursor returnCursor = getContentResolver().query(uri, null, null, null, null);
+                int size = returnCursor.getColumnIndex(OpenableColumns.SIZE);
+                returnCursor.moveToFirst();
+                length = returnCursor.getLong(size);
+                returnCursor.close();
+            } else if (requestCode == TAKE_PICTURE_REQUEST_CODE){
+                Bitmap bitmap = (Bitmap) intent.getExtras().get("data");
+                ByteArrayOutputStream os = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, os);
+                inputStream = new ByteArrayInputStream(os.toByteArray());
+                length = os.toByteArray().length;
+            }
 
 
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -186,6 +197,7 @@ public class HomeActivity extends Activity {
             Button getImageNameButton = (Button) view.findViewById(R.id.imageNameLayoutButton);
             final EditText editText = (EditText) view.findViewById(R.id.imageNameEditor);
             final InputStream finalInputStream = inputStream;
+            final long finalLength = length;
             getImageNameButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -193,7 +205,16 @@ public class HomeActivity extends Activity {
                     if (mImageNameDialog != null) {
                         mImageNameDialog.dismiss();
                     }
-                    uploadImage(finalInputStream,editText.getText().toString(),length);
+                    uploadImage(finalInputStream, editText.getText().toString(), finalLength);
+                    if (requestCode == TAKE_PICTURE_REQUEST_CODE) {
+                        EachItem item = new EachItem(EachItem.IMAGE_OPTION,
+                                editText.getText().toString(), HomeActivity.this);
+
+                        mOptionsAdapter.add(item);
+                        if (mTextAdderAlertDialog != null) {
+                            mTextAdderAlertDialog.dismiss();
+                        }
+                    }
                 }
             });
             builder.setView(view);
@@ -201,11 +222,12 @@ public class HomeActivity extends Activity {
             switch (requestCode) {
                 case TAKE_PICTURE_REQUEST_CODE:
                     builder.setTitle("Add image name");
-                    mImageNameDialog = builder.create();
-                    mImageNameDialog.show();
                     break;
                 case TAKE_VIDEO_REQUEST_CODE:
                     builder.setTitle("Add video name");
+                    break;
+                default:
+                    break;
 
             }
 
@@ -251,8 +273,6 @@ public class HomeActivity extends Activity {
     private void submitDataToServer() {
 
         List<ArticleData> articleDataArrayList = new ArrayList<ArticleData>();
-
-
 
         for (EachItem item : mArticleItems) {
             ArticleData data = null;

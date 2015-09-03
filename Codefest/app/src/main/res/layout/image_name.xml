@@ -7,7 +7,7 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Name image"
+        android:text="Add Asset Name"
         android:id="@+id/imageNameLayoutButton"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"

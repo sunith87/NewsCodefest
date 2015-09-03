@@ -96,7 +96,7 @@ public class OptionsAdapter extends ArrayAdapter<EachItem> {
             @Override
             public void afterTextChanged(Editable s) {
                 mObjects.remove(position);
-                mObjects.add(new EachItem(EachItem.TEXT_OPTION,s.toString(),mContext));
+                mObjects.add(position,new EachItem(EachItem.TEXT_OPTION,s.toString(),mContext));
             }
         });
     }
