@@ -29,7 +29,7 @@ public class ArticleClient {
     public static final String BUCKET_NAME = "codefest-team-a";
     public static final String ARTICLES = "articles";
     public static final String IMAGES = "images";
-    public static final String VIDEO = "images";
+    public static final String VIDEOS = "videos";
     public static final String S3_URI_PREFIX = "https://codefest-team-a.s3-eu-west-1.amazonaws.com/";
     public static final String VIDEO_MPEG = "video/mpeg";
 
@@ -43,7 +43,15 @@ public class ArticleClient {
     public void putImage(InputStream inputStream, String name, long length) {
 
         ImageService service = new ImageService(inputStream, length);
-        service.execute(name);
+        service.execute(IMAGES + "/" +name);
+
+
+    }
+
+    public void putVideo(InputStream inputStream, String name, long length) {
+
+        ImageService service = new ImageService(inputStream, length);
+        service.execute(VIDEOS + "/" +name);
 
 
     }
@@ -88,7 +96,7 @@ public class ArticleClient {
             throw new RuntimeException(e);
         }
     }
-    
+
 
     private List<String> getObjectNames(String folder) {
         List<String> list = new ArrayList<>();
@@ -133,7 +141,7 @@ public class ArticleClient {
 
         @Override
         protected Void doInBackground(String... params) {
-            String key = IMAGES + "/" + params[0];
+            String key =  params[0];
             Log.v(HomeActivity.TAG, "key =" + key);
 
             ObjectMetadata metadata = new ObjectMetadata();

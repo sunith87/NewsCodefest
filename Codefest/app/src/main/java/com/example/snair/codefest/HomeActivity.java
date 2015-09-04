@@ -4,11 +4,14 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.StrictMode;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -29,9 +32,15 @@ import com.google.gson.Gson;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -70,7 +79,8 @@ public class HomeActivity extends Activity {
         }
     };
     private EditText mTextEditor;
-
+    private String mCurrentPhotoPath;
+    private File mTempImageFile;
 
 
     @Override
@@ -129,8 +139,20 @@ public class HomeActivity extends Activity {
 
     private void openImageAdder() {
         Log.v(TAG, "openImageAdder");
-        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-        startActivityForResult(cameraIntent, TAKE_PICTURE_REQUEST_CODE);
+
+        Uri imageUri = null;
+        try {
+            mTempImageFile = createTempImageFile();
+            imageUri = Uri.fromFile(mTempImageFile);
+            Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT,
+                    imageUri);
+            startActivityForResult(cameraIntent, TAKE_PICTURE_REQUEST_CODE);
+        } catch (IOException e) {
+            Toast.makeText(this, "Can't take images now.", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
+
 
 
     }
@@ -206,7 +228,9 @@ public class HomeActivity extends Activity {
 
         if (resultCode == RESULT_OK) {
 
-            final Uri uri = intent.getData();
+            Uri uri = null;
+            if (intent != null)
+                 uri = intent.getData();
             InputStream inputStream = null;
 
         long length = 0;
@@ -223,13 +247,18 @@ public class HomeActivity extends Activity {
                 returnCursor.close();
                 showAssetNameDialog(requestCode, inputStream, length);
             } else if (requestCode == TAKE_PICTURE_REQUEST_CODE){
-                Bitmap bitmap = (Bitmap) intent.getExtras().get("data");
-                Uri imageUri = getImageUri(bitmap);
-                ByteArrayOutputStream os = new ByteArrayOutputStream();
-                bitmap.compress(IMAGE_FORMAT, 100, os);
-                inputStream = new ByteArrayInputStream(os.toByteArray());
-                length = os.toByteArray().length;
-                showAssetNameDialog(requestCode, inputStream, length);
+                FileInputStream inputStream1 = null;
+                try {
+                    inputStream1 = new FileInputStream(mTempImageFile);
+                    length = mTempImageFile.length();
+                    showAssetNameDialog(requestCode, inputStream1, length);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+
             }else if(requestCode == SPEECH_REQUEST_CODE){
                 if (mTextEditor != null) {
                    String oldValue =  mTextEditor.getText().toString();
@@ -251,12 +280,25 @@ public class HomeActivity extends Activity {
         }
     }
 
-    private Uri getImageUri(Bitmap bitmap){
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
-        String path = MediaStore.Images.Media.insertImage(getContentResolver(), bitmap, "Title", null);
-        return Uri.parse(path);
+
+    public File createTempImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        // Save a file: path for use with ACTION_VIEW intents
+        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
+        Log.v(TAG,"mCurrentPhotoPath = "+mCurrentPhotoPath);
+        return image;
     }
+
 
     private void showAssetNameDialog(final int requestCode, InputStream inputStream, long length) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -272,15 +314,17 @@ public class HomeActivity extends Activity {
                 if (mImageNameDialog != null) {
                     mImageNameDialog.dismiss();
                 }
-                uploadAsset(finalInputStream, editText.getText().toString(), finalLength);
+
                 EachItem item = null;
                 switch (requestCode) {
                     case TAKE_PICTURE_REQUEST_CODE:
-                        String imageResource = editText.getText().toString()+"."+ IMAGE_FORMAT.toString().toLowerCase();
+                        uploadAsset(finalInputStream, editText.getText().toString(), finalLength);
+                        String imageResource = editText.getText().toString();
                         item = new EachItem(EachItem.IMAGE_OPTION,
                                 imageResource, HomeActivity.this);
                         break;
                     case TAKE_VIDEO_REQUEST_CODE:
+                        uploadVideoAsset(finalInputStream, editText.getText().toString(), finalLength);
                         item = new EachItem(EachItem.VIDEO_OPTION,
                                 editText.getText().toString(), HomeActivity.this);
                         break;
@@ -329,8 +373,8 @@ public class HomeActivity extends Activity {
                 data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
             } else if (item.getItemType() == EachItem.VIDEO_OPTION) {
                 File imgFile = new File(item.getResource());
-                String dataUrl = ArticleClient.S3_URI_PREFIX + ArticleClient.VIDEO + SLASH + imgFile.getName();
-                data = new ArticleData(ArticleData.ContentType.IMAGE, dataUrl);
+                String dataUrl = ArticleClient.S3_URI_PREFIX + ArticleClient.VIDEOS + SLASH + imgFile.getName();
+                data = new ArticleData(ArticleData.ContentType.VIDEO, dataUrl);
             }
 
             articleDataArrayList.add(data);
@@ -377,7 +421,12 @@ public class HomeActivity extends Activity {
     }
 
     private void uploadAsset(InputStream inputStream, String name, long length) {
-        client.putImage(inputStream,name,length);
+        client.putImage(inputStream, name, length);
+
+    }
+
+    private void uploadVideoAsset(InputStream inputStream, String name, long length) {
+        client.putVideo(inputStream,name,length);
 
     }
 
